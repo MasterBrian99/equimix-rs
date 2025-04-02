@@ -13,7 +13,6 @@ pub struct RoundRobin {
     total: usize,
 }
 
-
 impl RoundRobin {
     pub fn new(urls: Vec<String>) -> Self {
         RoundRobin {
@@ -27,7 +26,7 @@ impl RoundRobin {
         }
     }
 
-    pub async fn get_next_server(&self) -> Option<String> { // Remove mut self
+    pub async fn get_next_server(&self) -> Option<String> {
         let servers = self.servers.read().unwrap();
         if servers.is_empty() {
             return None;
