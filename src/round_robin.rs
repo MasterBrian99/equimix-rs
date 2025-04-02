@@ -1,4 +1,7 @@
-use std::fmt::Error;
+use std::{
+    fmt::Error,
+    sync::{Arc, RwLock},
+};
 
 #[derive(Debug)]
 pub struct RoundRobinServers {
@@ -13,35 +16,43 @@ impl RoundRobinServers {
 
 #[derive(Debug)]
 pub struct RoundRobin {
-    servers: Vec<RoundRobinServers>,
+    servers: Arc<RwLock<Vec<RoundRobinServers>>>,
     current: usize,
     total: usize,
 }
 
 impl RoundRobin {
-    fn new(urls: Vec<String>) -> Self {
+    pub fn new(urls: Vec<String>) -> Self {
         RoundRobin {
             current: 0,
             total: urls.len(),
-            servers: urls
-                .into_iter()
-                .map(|url| RoundRobinServers::new(url))
-                .collect(),
+            servers: Arc::new(RwLock::new(
+                urls.into_iter()
+                    .map(|url| RoundRobinServers { url, healthy: true })
+                    .collect(),
+            )),
         }
     }
 
-    fn get_next(&mut self) -> Result<&mut RoundRobinServers, String> {
-        let mut attempts = 0;
-
-        while attempts < self.total {
-            let next_index = self.current;
-            self.current = (self.current + 1) % self.total;
-
-            if self.servers[next_index].healthy {
-                return Ok(&mut self.servers[next_index]);
-            }
-            attempts += 1;
+    pub async fn get_next_server(&mut self) -> Option<String> {
+        let servers = self.servers.read().unwrap();
+        if servers.is_empty() {
+            return None;
         }
-        Err("All servers are unhealthy".into())
+
+        let mut attempts = 0;
+        let len = self.total;
+
+        while attempts < len {
+            let index = self.current;
+            self.current = (self.current + 1) % len;
+            attempts += 1;
+
+            if servers[index].healthy {
+                return Some(servers[index].url.clone());
+            }
+        }
+
+        None
     }
 }
