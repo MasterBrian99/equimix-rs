@@ -1,30 +1,23 @@
-use std::{
-    fmt::Error,
-    sync::{Arc, RwLock},
-};
+use std::sync::{Arc, RwLock};
 
 #[derive(Debug)]
 pub struct RoundRobinServers {
     url: String,
     healthy: bool,
 }
-impl RoundRobinServers {
-    fn new(url: String) -> Self {
-        RoundRobinServers { url, healthy: true }
-    }
-}
 
 #[derive(Debug)]
 pub struct RoundRobin {
     servers: Arc<RwLock<Vec<RoundRobinServers>>>,
-    current: usize,
+    current: RwLock<usize>, // Use RwLock for mutable current
     total: usize,
 }
+
 
 impl RoundRobin {
     pub fn new(urls: Vec<String>) -> Self {
         RoundRobin {
-            current: 0,
+            current: RwLock::new(0), // Initialize current with RwLock
             total: urls.len(),
             servers: Arc::new(RwLock::new(
                 urls.into_iter()
@@ -34,7 +27,7 @@ impl RoundRobin {
         }
     }
 
-    pub async fn get_next_server(&mut self) -> Option<String> {
+    pub async fn get_next_server(&self) -> Option<String> { // Remove mut self
         let servers = self.servers.read().unwrap();
         if servers.is_empty() {
             return None;
@@ -44,8 +37,9 @@ impl RoundRobin {
         let len = self.total;
 
         while attempts < len {
-            let index = self.current;
-            self.current = (self.current + 1) % len;
+            let index = *self.current.read().unwrap(); // Read current
+            let mut current = self.current.write().unwrap(); // Write current
+            *current = (*current + 1) % len; // update current
             attempts += 1;
 
             if servers[index].healthy {

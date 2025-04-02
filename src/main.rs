@@ -1,18 +1,16 @@
 use http_body_util::Full;
 use hyper_util::rt::TokioIo;
+use round_robin::RoundRobin;
 use serde::Deserialize;
-use std::convert::Infallible;
 use std::net::SocketAddr;
-use std::sync::{Arc, RwLock};
+use std::sync::Arc;
 use tokio::fs;
 
 use hyper::body::Bytes;
-use hyper::server::conn::http1;
 use hyper::service::service_fn;
 use hyper::{Request, Response, StatusCode};
 use tokio::net::TcpListener;
 mod round_robin;
-use hyper::server::conn::http1::Builder;
 
 #[derive(Debug, Deserialize)]
 struct Config {
@@ -43,19 +41,19 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 
     let cargo_toml: Config = toml::from_str(&contents).expect("Failed to deserialize Cargo.toml");
     let server_urls: Vec<String> = cargo_toml.servers.into_iter().map(|s| s.url).collect();
-    let  lb = Arc::new(round_robin::RoundRobin::new(server_urls));
+    let lb = Arc::new(RoundRobin::new(server_urls));
 
     let addr = SocketAddr::from(([127, 0, 0, 1], 3000));
     let listener = TcpListener::bind(addr).await?;
-    // Start the load balancer server
+
     loop {
         let (stream, _) = listener.accept().await?;
         let io = TokioIo::new(stream);
-        let  lb = lb.clone();
+        let lb = lb.clone();
 
         tokio::task::spawn(async move {
             let service = service_fn(move |req: Request<hyper::body::Incoming>| {
-                let   lb = lb.clone();
+                let lb = lb.clone();
                 async move {
                     match lb.get_next_server().await {
                         Some(backend_url) => {
@@ -64,7 +62,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                                 .status(StatusCode::OK)
                                 .body(Full::new(Bytes::from(format!("Proxied to {}", backend_url))))
                                 .map_err(|e| e.to_string())
-                        },
+                        }
                         None => {
                             Response::builder()
                                 .status(StatusCode::SERVICE_UNAVAILABLE)
@@ -73,9 +71,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                         }
                     }
                 }
+                
             });
-
+            if let Err(err) = hyper::server::conn::http1::Builder::new()
+                .serve_connection(io, service)
+                .await
+            {
+                println!("Error serving connection: {:?}", err);
+            }
         });
     }
 }
+
 
