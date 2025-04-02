@@ -4,3 +4,6 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+tokio = {version = "1.44.1",features = ["full"]}
+toml = "0.8.20"
+serde = { version = "1.0", features = ["derive"] }
