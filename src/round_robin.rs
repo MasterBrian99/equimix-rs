@@ -1,26 +1,29 @@
 use std::sync::{Arc, RwLock};
 
-#[derive(Debug)]
+use crate::Servers;
+
+#[derive(Debug,Clone)]
 pub struct RoundRobinServers {
-    url: String,
-    healthy: bool,
+    pub url: String,
+    pub  healthy: bool,
+    pub health_check_path:String
 }
 
 #[derive(Debug)]
 pub struct RoundRobin {
     servers: Arc<RwLock<Vec<RoundRobinServers>>>,
-    current: RwLock<usize>, // Use RwLock for mutable current
+    current: RwLock<usize>, // RwLock is magic
     total: usize,
 }
 
 impl RoundRobin {
-    pub fn new(urls: Vec<String>) -> Self {
+    pub fn new(servers: Vec<Servers>) -> Self {
         RoundRobin {
             current: RwLock::new(0), // Initialize current with RwLock
-            total: urls.len(),
+            total: servers.len(),
             servers: Arc::new(RwLock::new(
-                urls.into_iter()
-                    .map(|url| RoundRobinServers { url, healthy: true })
+                servers.into_iter()
+                    .map(|server| RoundRobinServers { url:server.url, healthy: true, health_check_path:server.health_check_path })
                     .collect(),
             )),
         }
@@ -47,5 +50,19 @@ impl RoundRobin {
         }
 
         None
+    }
+
+    pub fn get_all_servers(&self) -> Option<Vec<RoundRobinServers>> {
+        let servers = self.servers.read().unwrap();
+        if servers.is_empty() {
+            return None;
+        }
+        Some(servers.clone())
+    }
+
+    pub fn update_healthy(&self, index:usize, healthy: bool) {
+        let mut servers = self.servers.write().unwrap();
+        let server= &mut servers[index];
+        server.healthy = healthy;
     }
 }

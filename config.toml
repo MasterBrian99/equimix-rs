@@ -4,7 +4,13 @@ algo= "round-robin"
 
 [[servers]]
 url = "http://localhost:8080"
+health_check_path = "/health"
 [[servers]]
 url = "http://localhost:8081"
+health_check_path = "/health"
 [[servers]]
 url = "http://localhost:8082"
+health_check_path = "/health"
+[[servers]]
+url = "http://localhost:8083"
+health_check_path = "/health"

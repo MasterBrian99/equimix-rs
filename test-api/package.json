@@ -1,0 +1,21 @@
+{
+  "name": "lb-api",
+  "module": "index.ts",
+  "type": "module",
+  "devDependencies": {
+    "@types/bun": "latest"
+  },
+  "peerDependencies": {
+    "typescript": "^5.0.0"
+  },
+  "scripts": {
+    "run:8080": " bun run index.ts 8080",
+    "run:8081": " bun run index.ts 8081",
+    "run:8082": " bun run index.ts 8082",
+    "run:8083": " bun run index.ts 8083",
+    "start": "concurrently \"bun run run:8080\" \"bun run run:8081\" \"bun run run:8082\" "  
+  },
+  "dependencies": {
+    "concurrently": "^9.1.2"
+  }
+}
